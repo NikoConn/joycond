@@ -39,6 +39,21 @@ void virt_ctlr_combined::relay_events(std::shared_ptr<phys_ctlr> phys)
                     libevdev_uinput_write_event(uidev, ev.type, ev.code == BTN_TL ? BTN_TRIGGER_HAPPY3 : BTN_TRIGGER_HAPPY4, ev.value);
                 ret = libevdev_next_event(evdev, LIBEVDEV_READ_FLAG_NORMAL, &ev);
                 continue;
+            } else if (phys == physl && ev.type == EV_KEY && (ev.code == BTN_DPAD_UP || ev.code == BTN_DPAD_DOWN)) {            //DPAD vertical fix
+                if (!is_serial)
+                    libevdev_uinput_write_event(uidev, EV_ABS, ABS_HAT0Y, ev.value == 0? 0: ev.code == BTN_DPAD_UP? -1: 1);
+                ret = libevdev_next_event(evdev, LIBEVDEV_READ_FLAG_NORMAL, &ev);
+                continue;
+            } else if (phys == physl && ev.type == EV_KEY && (ev.code == BTN_DPAD_LEFT || ev.code == BTN_DPAD_RIGHT)) {         //DPAD horizontal fix
+                if (!is_serial)
+                    libevdev_uinput_write_event(uidev, EV_ABS, ABS_HAT0X, ev.value == 0? 0: ev.code == BTN_DPAD_LEFT? -1: 1);
+                ret = libevdev_next_event(evdev, LIBEVDEV_READ_FLAG_NORMAL, &ev);
+                continue;
+            } else if (phys == physr && ev.type == EV_KEY && (ev.code == BTN_WEST || ev.code == BTN_NORTH)) {                   //Y-X swap
+                if (!is_serial)
+                    libevdev_uinput_write_event(uidev, ev.type, ev.code == BTN_WEST? BTN_NORTH: BTN_WEST, ev.value);
+                ret = libevdev_next_event(evdev, LIBEVDEV_READ_FLAG_NORMAL, &ev);
+                continue;
             }
 
 #if defined(ANDROID) || defined(__ANDROID__)
@@ -288,11 +303,18 @@ virt_ctlr_combined::virt_ctlr_combined(std::shared_ptr<phys_ctlr> physl, std::sh
     absconfig.maximum = 32767;
     absconfig.fuzz = 250;
     absconfig.flat = 500;
+
+    struct input_absinfo abshatconfig = { 0 };
+    abshatconfig.minimum = -1;
+    abshatconfig.maximum = 1;
+
     libevdev_enable_event_type(virt_evdev, EV_ABS);
     libevdev_enable_event_code(virt_evdev, EV_ABS, ABS_X, &absconfig);
     libevdev_enable_event_code(virt_evdev, EV_ABS, ABS_Y, &absconfig);
     libevdev_enable_event_code(virt_evdev, EV_ABS, ABS_RX, &absconfig);
     libevdev_enable_event_code(virt_evdev, EV_ABS, ABS_RY, &absconfig);
+    libevdev_enable_event_code(virt_evdev, EV_ABS, ABS_HAT0X, &abshatconfig);
+    libevdev_enable_event_code(virt_evdev, EV_ABS, ABS_HAT0Y, &abshatconfig);
 
     // Emulate analog triggers and HAT for android
 #if defined(ANDROID) || defined(__ANDROID__)
